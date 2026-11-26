@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>さまよいの森 - 迷宮探索（動作検証）</title>
+  <style>
+    :root {
+      --bg-color: #12100e;
+      --panel-bg: #1b1815;
+      --panel-sub: #151210;
+      --border-color: #4a4035;
+      --text-main: #e6dfd3;
+      --text-muted: #9e9384;
+      --accent: #c99a49;
+      --accent-bright: #f0c470;
+      --btn-bg: #26211c;
+      --btn-hover: #362f27;
+      --danger: #b85446;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "MS PMincho", Georgia, serif;
+      line-height: 1.75;
+      min-height: 100vh;
+    }
+
+    /* ===== PC版：3カラムレイアウト (768px以上) ===== */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 330px minmax(360px, 680px) 280px;
+      justify-content: center;
+      gap: 16px;
+      padding: 16px;
+      min-height: 100vh;
+      align-items: start;
+    }
+
+    .col-panel {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      padding: 14px;
+    }
+
+    .col-title {
+      font-size: 0.85rem;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+      letter-spacing: 0.08em;
+    }
+
+    /* スマホ専用要素はPCでは隠す */
+    .mobile-header,
+    .mobile-drawer {
+      display: none;
+    }
+
+    /* 左カラム：ステータス＆デバッグ地図 */
+    .status-compact {
+      font-size: 0.88rem;
+      margin-bottom: 12px;
+      padding: 8px;
+      background-color: var(--panel-sub);
+      border: 1px solid #302922;
+    }
+
+    .status-line {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .debug-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-family: monospace;
+      background-color: #3b2618;
+      color: var(--accent-bright);
+      border: 1px solid var(--accent);
+      padding: 1px 6px;
+      margin-bottom: 8px;
+    }
+
+    .seed-info {
+      font-family: monospace;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      background-color: var(--panel-sub);
+      border: 1px solid #302922;
+      padding: 8px;
+      margin-bottom: 12px;
+      word-break: break-all;
+    }
+
+    .seed-info div {
+      margin-bottom: 2px;
+    }
+
+    .map-grid-pre {
+      font-family: "MS Gothic", "Osaka-Mono", "Noto Sans Mono CJK JP", monospace;
+      font-size: 13px;
+      line-height: 1.15;
+      background-color: #0d0c0a;
+      border: 1px solid var(--border-color);
+      padding: 10px;
+      overflow-x: auto;
+      white-space: pre;
+      color: #d8cfc2;
+      text-align: center;
+    }
+
+    .map-legend {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    /* 中央カラム：本編テキスト＆選択肢 */
+    .col-main {
+      min-height: 82vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 22px 24px;
+    }
+
+    .story-header {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid #302922;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .story-body {
+      font-size: 1.02rem;
+      margin-bottom: 28px;
+      white-space: pre-wrap;
+    }
+
+    .choices-area {
+      border-top: 1px solid var(--border-color);
+      padding-top: 16px;
+    }
+
+    .choices-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .choice-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      background-color: var(--btn-bg);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      font-family: inherit;
+      font-size: 0.96rem;
+      cursor: pointer;
+      transition: background-color 0.15s, border-color 0.15s;
+    }
+
+    .choice-btn:hover {
+      background-color: var(--btn-hover);
+      border-color: var(--accent);
+    }
+
+    .choice-btn.boundary {
+      border-color: #7d6234;
+      color: var(--accent-bright);
+    }
+
+    .choice-btn.exit-boss {
+      border-color: var(--danger);
+      color: #f09c90;
+    }
+
+    .utility-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .util-btn {
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      background-color: transparent;
+      color: var(--text-muted);
+      border: 1px solid #3a3229;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .util-btn:hover {
+      color: var(--text-main);
+      border-color: var(--text-muted);
+    }
+
+    /* 右カラム：詳細能力・所持品・信仰 */
+    .detail-block {
+      margin-bottom: 14px;
+      font-size: 0.85rem;
+    }
+
+    .detail-block h4 {
+      font-size: 0.82rem;
+      color: var(--accent);
+      margin-bottom: 6px;
+      border-bottom: 1px dotted #3a3229;
+      padding-bottom: 2px;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 10px;
+    }
+
+    .item-list {
+      list-style: none;
+      color: var(--text-muted);
+    }
+
+    .item-list li {
+      margin-bottom: 3px;
+    }
+
+    /* エンリル座像＆サイコロ演出ギミック（にゅっ） */
+    .enlil-overlay {
+      position: fixed;
+      left: 50%;
+      bottom: -260px;
+      transform: translateX(-50%);
+      width: min(92vw, 380px);
+      background-color: #1f1a15;
+      border: 2px solid var(--accent);
+      border-bottom: none;
+      padding: 14px 16px 20px;
+      text-align: center;
+      box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.85);
+      transition: bottom 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 200;
+    }
+
+    .enlil-overlay.active {
+      bottom: 0;
+    }
+
+    .enlil-statue {
+      font-size: 0.9rem;
+      color: var(--accent-bright);
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #3e3428;
+      padding-bottom: 6px;
+    }
+
+    .dice-pair {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin: 12px 0;
+    }
+
+    .dice-box {
+      width: 64px;
+      height: 64px;
+      border: 2px solid var(--accent);
+      background-color: #0e0c0a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: monospace;
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: var(--accent-bright);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .dice-box.rolling {
+      border-color: #f5d896;
+      background-color: #2c2317;
+    }
+
+    .dice-result-text {
+      font-size: 0.85rem;
+      color: var(--text-main);
+      min-height: 1.5em;
+      margin-bottom: 10px;
+    }
+
+    /* ===== スマホ版：3分割レイアウト (768px未満) ===== */
+    @media (max-width: 767px) {
+      .app-layout {
+        display: block;
+        padding: 48px 10px 72px;
+      }
+
+      /* 仕様通り、スマホでは左右カラム（デバッグ地図等）を表示しない */
+      .col-left,
+      .col-right {
+        display: none;
+      }
+
+      .col-main {
+        min-height: calc(100vh - 125px);
+        padding: 16px 14px;
+      }
+
+      /* 上部固定ヘッダー */
+      .mobile-header {
+        display: flex;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        background-color: #161310;
+        border-bottom: 1px solid var(--border-color);
+        padding: 0 10px;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 0.78rem;
+        z-index: 100;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+
+      /* 下部可動式トレイ（ボトムシート） */
+      .mobile-drawer {
+        display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #191612;
+        border-top: 2px solid var(--border-color);
+        z-index: 110;
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+
+      .drawer-handle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        font-size: 0.75rem;
+        color: var(--accent);
+        background-color: #211d18;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .drawer-handle-center {
+        border: 1px solid var(--accent);
+        padding: 2px 8px;
+        color: var(--accent-bright);
+        font-weight: bold;
+      }
+
+      .drawer-content {
+        display: none;
+        max-height: 60vh;
+        overflow-y: auto;
+        padding: 12px;
+        border-top: 1px solid #352e26;
+      }
+
+      .mobile-drawer.open .drawer-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- スマホ上部固定ヘッダー -->
+  <header class="mobile-header" id="mobileHeader"></header>
+
+  <!-- PC 3カラム / スマホ メイン -->
+  <div class="app-layout">
+    <!-- 左カラム（PC用：ステータス＋デバッグ地図） -->
+    <aside class="col-panel col-left" id="colLeft">
+      <div class="col-title">基本情報 ／ 迷宮デバッグ</div>
+      <div id="leftDebugArea"></div>
+    </aside>
+
+    <!-- 中央カラム（本編・選択肢） -->
+    <main class="col-panel col-main">
+      <div>
+        <div class="story-header">
+          <span id="storyTimeLabel"></span>
+          <span id="storyAreaLabel"></span>
+        </div>
+        <div class="story-body" id="storyBody"></div>
+      </div>
+
+      <div class="choices-area">
+        <div class="choices-label">行動を選択</div>
+        <div id="choicesContainer"></div>
+        <div class="utility-row">
+          <button type="button" class="util-btn" id="openEnlilBtn">🎲 サイコロ演出テスト</button>
+          <button type="button" class="util-btn" id="backTitleBtn">スタート画面へ戻る</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- 右カラム（PC用：道具箱・能力・信仰） -->
+    <aside class="col-panel col-right" id="colRight">
+      <div class="col-title">能力値・所持品・信仰</div>
+      <div id="rightDetailArea"></div>
+    </aside>
+  </div>
+
+  <!-- スマホ下部可動式トレイ -->
+  <section class="mobile-drawer" id="mobileDrawer">
+    <div class="drawer-handle" id="drawerHandle">
+      <span>▲ 信仰・能力</span>
+      <span class="drawer-handle-center">［ エンリル座像 ］</span>
+      <span>アイテム ▲</span>
+    </div>
+    <div class="drawer-content" id="drawerContent"></div>
+  </section>
+
+  <!-- エンリル＆サイコロ演出ギミック（にゅっ） -->
+  <div class="enlil-overlay" id="enlilOverlay">
+    <div class="enlil-statue">［ 最高神エンリル ］</div>
+    <div class="dice-pair">
+      <div class="dice-box" id="diceLeft">？</div>
+      <div class="dice-box" id="diceRight">？</div>
+    </div>
+    <div class="dice-result-text" id="diceResultText">サイコロをタップして運命を振れ</div>
+    <button type="button" class="util-btn" id="closeEnlilBtn">閉じる</button>
+  </div>
+
+  <script>
+    (function () {
+      // ===== 定数・座標変換 =====
+      const AREA_COLS = ['A', 'B', 'C', 'D', 'E'];
+      const AREA_ROWS = ['1', '2', '3', '4', '5'];
+      const POS_COLS = ['a', 'b', 'c', 'd', 'e'];
+      const POS_ROWS = ['1', '2', '3', '4', '5'];
+      const TIME_NAMES = ['薄明', '朝陽', '白日', '灼熱', '黄昏', '宵闇', '深更'];
+
+      const DIR_DELTA = {
+        N: { dx: 0, dy: -1, opp: 'S', label: '北' },
+        E: { dx: 1, dy: 0, opp: 'W', label: '東' },
+        S: { dx: 0, dy: 1, opp: 'N', label: '南' },
+        W: { dx: -1, dy: 0, opp: 'E', label: '西' }
+      };
+
+      const RELATIVE_ORDER = {
+        N: [
+          { dir: 'N', rel: '正面' },
+          { dir: 'E', rel: '右手' },
+          { dir: 'W', rel: '左手' },
+          { dir: 'S', rel: '背後' }
+        ],
+        E: [
+          { dir: 'E', rel: '正面' },
+          { dir: 'S', rel: '右手' },
+          { dir: 'N', rel: '左手' },
+          { dir: 'W', rel: '背後' }
+        ],
+        S: [
+          { dir: 'S', rel: '正面' },
+          { dir: 'W', rel: '右手' },
+          { dir: 'E', rel: '左手' },
+          { dir: 'N', rel: '背後' }
+        ],
+        W: [
+          { dir: 'W', rel: '正面' },
+          { dir: 'N', rel: '右手' },
+          { dir: 'S', rel: '左手' },
+          { dir: 'E', rel: '背後' }
+        ]
+      };
+
+      // ===== 決定論的擬似乱数 (Mulberry32) =====
+      function createRng(seed) {
+        let a = seed >>> 0;
+        return function () {
+          let t = a += 0x6D2B79F5;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function nextHashSeed(base, salt) {
+        let h = base >>> 0;
+        for (let i = 0; i < salt.length; i++) {
+          h = Math.imul(h ^ salt.charCodeAt(i), 2654435761) >>> 0;
+        }
+        return (h % 900000) + 1000;
+      }
+
+      // ===== URLパラメータ読み込み =====
+      const query = new URLSearchParams(window.location.search);
+      const s = parseInt(query.get('s') || '8301', 10);
+      const ms = parseInt(query.get('ms') || String(nextHashSeed(s, 'C5-maze')), 10);
+      const es = parseInt(query.get('es') || String(nextHashSeed(s, 'C5-event')), 10);
+      const areaStr = (query.get('area') || 'C5').toUpperCase();
+      const posStr = (query.get('pos') || 'c5').toLowerCase();
+      const facing = DIR_DELTA[query.get('dir')] ? query.get('dir') : 'N';
+      const turn = parseInt(query.get('t') || '1', 10);
+      const isDebug = query.get('debug') === '1';
+      const pRaw = (query.get('p') || '99,99,99,99,50,50,50,50,50,10,100').split(',').map(Number);
+      const fl = (query.get('fl') || '0000000000000000000000100').padEnd(25, '0');
+      const sw = query.get('sw') || '00000000000000000000000000000000';
+
+      function parseCoord(str, cols, rows, defX, defY) {
+        const x = cols.indexOf(str[0]);
+        const y = rows.indexOf(str[1]);
+        if (x < 0 || y < 0) return { x: defX, y: defY };
+        return { x, y };
+      }
+
+      const areaCoord = parseCoord(areaStr, AREA_COLS, AREA_ROWS, 2, 4); // C5
+      const posCoord = parseCoord(posStr, POS_COLS, POS_ROWS, 2, 4);    // c5
+      const curAreaName = AREA_COLS[areaCoord.x] + AREA_ROWS[areaCoord.y];
+      const curPosName = POS_COLS[posCoord.x] + POS_ROWS[posCoord.y];
+
+      // ===== 5×5 迷路生成ロジック（スパニングツリー + ループ追加） =====
+      function generateGridMaze(seed, loopChance) {
+        const rng = createRng(seed);
+        const grid = [];
+        for (let y = 0; y < 5; y++) {
+          grid[y] = [];
+          for (let x = 0; x < 5; x++) {
+            grid[y][x] = { N: false, E: false, S: false, W: false, visited: false };
+          }
+        }
+
+        const stack = [{ x: 2, y: 2 }];
+        grid[2][2].visited = true;
+
+        while (stack.length > 0) {
+          const cur = stack[stack.length - 1];
+          const dirs = ['N', 'E', 'S', 'W'].filter(function (d) {
+            const nx = cur.x + DIR_DELTA[d].dx;
+            const ny = cur.y + DIR_DELTA[d].dy;
+            return nx >= 0 && nx < 5 && ny >= 0 && ny < 5 && !grid[ny][nx].visited;
+          });
+
+          if (dirs.length === 0) {
+            stack.pop();
+          } else {
+            const pick = dirs[Math.floor(rng() * dirs.length)];
+            const nx = cur.x + DIR_DELTA[pick].dx;
+            const ny = cur.y + DIR_DELTA[pick].dy;
+            grid[cur.y][cur.x][pick] = true;
+            grid[ny][nx][DIR_DELTA[pick].opp] = true;
+            grid[ny][nx].visited = true;
+            stack.push({ x: nx, y: ny });
+          }
+        }
+
+        // 回遊性を出すため追加で通路を開く
+        for (let y = 0; y < 5; y++) {
+          for (let x = 0; x < 5; x++) {
+            if (x < 4 && !grid[y][x].E && rng() < loopChance) {
+              grid[y][x].E = true;
+              grid[y][x + 1].W = true;
+            }
+            if (y < 4 && !grid[y][x].S && rng() < loopChance) {
+              grid[y][x].S = true;
+              grid[y + 1][x].N = true;
+            }
+          }
+        }
+
+        return grid;
+      }
+
+      // ===== 1. 大マップ（A1〜E5）の生成 =====
+      const bigMaze = generateGridMaze(s, 0.25);
+
+      // 中央エリア C3 (x=2, y=2) は必ず十字（N, E, S, W）に接続する確定仕様
+      bigMaze[2][2].N = true; bigMaze[1][2].S = true;
+      bigMaze[2][2].E = true; bigMaze[2][3].W = true;
+      bigMaze[2][2].S = true; bigMaze[3][2].N = true;
+      bigMaze[2][2].W = true; bigMaze[2][1].E = true;
+
+      const curAreaLinks = bigMaze[areaCoord.y][areaCoord.x];
+
+      // 森の外縁の脱出口判定
+      const outerExits = {
+        N: curAreaName === 'C1',
+        W: curAreaName === 'A3',
+        E: curAreaName === 'E3',
+        S: false
+      };
+
+      // ===== 2. 小マップ（a1〜e5）の生成 =====
+      function getCellAttr(x, y) {
+        const name = POS_COLS[x] + POS_ROWS[y];
+        if (name === 'a1' || name === 'e1' || name === 'c3' || name === 'a5' || name === 'e5') return '要';
+        if (name === 'b2' || name === 'd2' || name === 'b4' || name === 'd4') return '兆';
+        if (name === 'c1' || name === 'a3' || name === 'e3' || name === 'c5') return '境';
+        return '野';
+      }
+
+      const isTownC3 = (curAreaName === 'C3');
+      const smallMaze = isTownC3 ? null : generateGridMaze(ms, 0.2);
+
+      // ===== 3. PCデバッグ用 3×3 × 5×5 全角罫線マップ描画 =====
+      function renderAsciiMap() {
+        if (isTownC3) {
+          return [
+            '　　　　　　　　　　　　　　　',
+            '　　　　　　┌↑┐　　　　　　',
+            '　　　　　　│北│　　　　　　',
+            '　　　　　　│　│　　　　　　',
+            '　┌────┘　└────┐　',
+            '　←西　　　　★　　　　東→　',
+            '　└────┐街┌────┘　',
+            '　　　　　　│　│　　　　　　',
+            '　　　　　　│南│　　　　　　',
+            '　　　　　　└↓┘　　　　　　',
+            '　　　　　　　　　　　　　　　'
+          ].join('\n');
+        }
+
+        const lines = [];
+        lines.push('　　ａ　　ｂ　　ｃ　　ｄ　　ｅ　');
+
+        for (let y = 0; y < 5; y++) {
+          let rowTop = '　';
+          let rowMid = ['１', '２', '３', '４', '５'][y];
+          let rowBot = '　';
+
+          for (let x = 0; x < 5; x++) {
+            const cell = smallMaze[y][x];
+            const name = POS_COLS[x] + POS_ROWS[y];
+            const isHere = (x === posCoord.x && y === posCoord.y);
+            const attr = isHere ? '★' : getCellAttr(x, y);
+
+            // 上辺（北）
+            let topMid = cell.N ? '　' : '─';
+            if (name === 'c1') {
+              if (outerExits.N) topMid = '出';
+              else if (curAreaLinks.N) topMid = '↑';
+            }
+
+            // 下辺（南）
+            let botMid = cell.S ? '　' : '─';
+            if (name === 'c5') {
+              if (curAreaLinks.S) botMid = '↓';
+            }
+
+            // 左辺（西）
+            let leftWall = cell.W ? '　' : '│';
+            if (name === 'a3') {
+              if (outerExits.W) leftWall = '出';
+              else if (curAreaLinks.W) leftWall = '←';
+            }
+
+            // 右辺（東）
+            let rightWall = cell.E ? '　' : '│';
+            if (name === 'e3') {
+              if (outerExits.E) rightWall = '出';
+              else if (curAreaLinks.E) rightWall = '→';
+            }
+
+            rowTop += '┌' + topMid + '┐';
+            rowMid += leftWall + attr + rightWall;
+            rowBot += '└' + botMid + '┘';
+          }
+
+          lines.push(rowTop);
+          lines.push(rowMid);
+          lines.push(rowBot);
+        }
+
+        return lines.join('\n');
+      }
+
+      // ===== 4. 画面情報・ステータスの描画 =====
+      const timeIndex = turn % TIME_NAMES.length;
+      const timeName = TIME_NAMES[timeIndex];
+      const hp = pRaw[0], maxHp = pRaw[1], mp = pRaw[2], maxMp = pRaw[3];
+      const water = pRaw[4], food = pRaw[5];
+      const atk = pRaw[6], def = pRaw[7], spd = pRaw[8], luck = pRaw[9], gold = pRaw[10];
+
+      // スマホ上部ヘッダー
+      document.getElementById('mobileHeader').innerHTML =
+        '<span>［' + timeName + '］</span>' +
+        '<span>HP:' + hp + '/' + maxHp + ' MP:' + mp + '/' + maxMp + '</span>' +
+        '<span>💧' + water + ' 🍞' + food + '</span>';
+
+      // PC左カラム
+      const leftArea = document.getElementById('leftDebugArea');
+      if (isDebug) {
+        const connStr =
+          '北:' + (outerExits.N ? '出' : curAreaLinks.N ? '○' : '×') + ' ' +
+          '西:' + (outerExits.W ? '出' : curAreaLinks.W ? '○' : '×') + ' ' +
+          '東:' + (outerExits.E ? '出' : curAreaLinks.E ? '○' : '×') + ' ' +
+          '南:' + (curAreaLinks.S ? '○' : '×');
+
+        leftArea.innerHTML =
+          '<span class="debug-badge">DEBUG MODE ON</span>' +
+          '<div class="status-compact">' +
+            '<div class="status-line"><span>時間帯：［' + timeName + '］</span><span>経過：' + turn + '歩</span></div>' +
+            '<div class="status-line"><span>HP：' + hp + '/' + maxHp + '</span><span>MP：' + mp + '/' + maxMp + '</span></div>' +
+            '<div class="status-line"><span>💧水：' + water + '</span><span>🍞食料：' + food + '</span></div>' +
+          '</div>' +
+          '<div class="seed-info">' +
+            '<div>大マップ座標：<strong>' + curAreaName + '</strong> [' + connStr + ']</div>' +
+            '<div>小マップ座標：<strong>' + (isTownC3 ? '街(小迷路なし)' : curPosName + '（' + getCellAttr(posCoord.x, posCoord.y) + '）') + '</strong> / 向き:' + DIR_DELTA[facing].label + '</div>' +
+            '<div>大シード(s)：' + s + '</div>' +
+            '<div>小迷路(ms)：' + ms + ' / イベント(es)：' + es + '</div>' +
+          '</div>' +
+          '<pre class="map-grid-pre">' + renderAsciiMap() + '</pre>' +
+          '<div class="map-legend">★:現在地 / 野・境・兆・要:属性<br>↑↓←→:隣エリア境界 / 出:森の脱出口</div>';
+      } else {
+        leftArea.innerHTML =
+          '<div class="status-compact">' +
+            '<div class="status-line"><span>時間帯：［' + timeName + '］</span></div>' +
+            '<div class="status-line"><span>HP：' + hp + '/' + maxHp + '</span><span>MP：' + mp + '/' + maxMp + '</span></div>' +
+            '<div class="status-line"><span>💧水：' + water + '</span><span>🍞食料：' + food + '</span></div>' +
+          '</div>' +
+          '<p style="font-size:0.8rem; color:var(--text-muted);">通常モード表示中（地図非表示）</p>';
+      }
+
+      // 右カラム＆スマホ引き出し内容の共通HTML
+      const faithVal = isDebug ? 6 : 3;
+      const detailHtml =
+        '<div class="detail-block">' +
+          '<h4>基礎能力値</h4>' +
+          '<div class="stat-grid">' +
+            '<span>攻撃：' + atk + '</span><span>防御：' + def + '</span>' +
+            '<span>素早さ：' + spd + '</span><span>敏捷性：' + spd + '</span>' +
+            '<span>重量：0</span><span>金貨：' + gold + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="detail-block">' +
+          '<h4>七曜の信仰</h4>' +
+          '<div class="stat-grid">' +
+            '<span>太陽：' + faithVal + '</span><span>月：' + faithVal + '</span>' +
+            '<span>火星：' + faithVal + '</span><span>水星：' + faithVal + '</span>' +
+            '<span>木星：' + faithVal + '</span><span>金星：' + faithVal + '</span>' +
+            '<span>土星：' + faithVal + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="detail-block">' +
+          '<h4>所持品・リュック</h4>' +
+          '<ul class="item-list">' +
+            '<li>・穴の開いた胸当て</li>' +
+            '<li>・傷だらけの兜</li>' +
+            '<li>・水筒（水 ' + water + '）</li>' +
+            '<li>・携帯食料（' + food + '）</li>' +
+          '</ul>' +
+        '</div>';
+
+      document.getElementById('rightDetailArea').innerHTML = detailHtml;
+      document.getElementById('drawerContent').innerHTML = detailHtml;
+
+      // ===== 5. 本編テキスト＆相対移動ボタン生成 =====
+      document.getElementById('storyTimeLabel').textContent = '［' + timeName + '］';
+      document.getElementById('storyAreaLabel').textContent = isDebug
+        ? (curAreaName + ' / ' + (isTownC3 ? '街' : curPosName))
+        : '';
+
+      const storyBody = document.getElementById('storyBody');
+      if (isTownC3) {
+        storyBody.textContent =
+          '［' + timeName + '］の時間。\n\n' +
+          '木々の壁が突然途切れ、視界が大きく開けた。\n' +
+          'ここは森の中心に位置する「街（C3）」の領域だ。\n\n' +
+          '（※動作検証用：街エリアには5×5の小迷路はなく、東西南北の4方向へ確実に抜ける十字接続となっています）';
+      } else {
+        const attr = getCellAttr(posCoord.x, posCoord.y);
+        let desc = '';
+        if (attr === '野') desc = '鬱蒼とした木々が連なる、森の標準的な区画（【野】マス）にいる。';
+        if (attr === '境') desc = '頭上の枝葉が途切れ、木漏れ日が差し込む開けた原っぱ（【境】マス）に出た。';
+        if (attr === '兆') desc = '周囲の木々とは異なる、人の手や何かの痕跡が感じられる場所（【兆】マス）だ。';
+        if (attr === '要') desc = '森の気配が濃く淀み、何か特別な出来事が待ち受けていそうな空間（【要】マス）に足を踏み入れた。';
+
+        storyBody.textContent =
+          '［' + timeName + '］の時間。\n\n' +
+          desc + '\n' +
+          'あなたは' + DIR_DELTA[facing].label + 'の方角へ向かってこの場所へ足を踏み入れた。\n\n' +
+          '（※イベント無し・迷宮生成＆シード値検証モード）';
+      }
+
+      // 遷移用URLビルダー
+      function buildNextUrl(nextAreaX, nextAreaY, nextPosX, nextPosY, nextDir, crossedBoundary) {
+        const nextArea = AREA_COLS[nextAreaX] + AREA_ROWS[nextAreaY];
+        const nextPos = POS_COLS[nextPosX] + POS_ROWS[nextPosY];
+        let nextMs = ms;
+        let nextEs = es;
+
+        // エリア境界を越えた場合、小マップ迷路シード値とイベントシード値を更新（退路の消失）
+        if (crossedBoundary) {
+          nextMs = nextHashSeed(ms, nextArea + '-' + nextPos + '-' + turn);
+          nextEs = nextHashSeed(es, nextArea + '-ev-' + turn);
+        }
+
+        // フラグ更新（25文字）
+        const flArr = crossedBoundary ? new Array(25).fill('0') : fl.split('');
+        if (nextArea !== 'C3') {
+          flArr[nextPosY * 5 + nextPosX] = '1';
+        }
+
+        const nextParams = new URLSearchParams({
+          s: String(s),
+          ms: String(nextMs),
+          es: String(nextEs),
+          area: nextArea,
+          pos: nextPos,
+          dir: nextDir,
+          t: String(turn + 1),
+          debug: isDebug ? '1' : '0',
+          p: pRaw.join(','),
+          fl: flArr.join(''),
+          sw: sw
+        });
+
+        return 'maze.html?' + nextParams.toString();
+      }
+
+      const choicesContainer = document.getElementById('choicesContainer');
+      const relList = RELATIVE_ORDER[facing];
+
+      relList.forEach(function (item) {
+        const d = item.dir;
+        const rel = item.rel;
+        const delta = DIR_DELTA[d];
+
+        if (isTownC3) {
+          // 街(C3)は十字移動で必ず隣接エリアの境マスへ抜ける
+          const nxAreaX = areaCoord.x + delta.dx;
+          const nxAreaY = areaCoord.y + delta.dy;
+          const entryPos = { N: [2, 4], S: [2, 0], E: [0, 2], W: [4, 2] }[d];
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'choice-btn boundary';
+          btn.textContent = rel + 'の門をくぐり、森の道へ出る' +
+            (isDebug ? '（' + delta.label + '：' + AREA_COLS[nxAreaX] + AREA_ROWS[nxAreaY] + ' の ' + POS_COLS[entryPos[0]] + POS_ROWS[entryPos[1]] + ' へ）' : '');
+          btn.addEventListener('click', function () {
+            window.location.href = buildNextUrl(nxAreaX, nxAreaY, entryPos[0], entryPos[1], d, true);
+          });
+          choicesContainer.appendChild(btn);
+          return;
+        }
+
+        // 通常エリア（5×5小迷路）
+        const cell = smallMaze[posCoord.y][posCoord.x];
+
+        // 1. 小マップ内の隣接マス移動
+        if (cell[d]) {
+          const nx = posCoord.x + delta.dx;
+          const ny = posCoord.y + delta.dy;
+          const nextName = POS_COLS[nx] + POS_ROWS[ny];
+          const nextAttr = getCellAttr(nx, ny);
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'choice-btn';
+          btn.textContent = rel + 'の道へ進む' +
+            (isDebug ? '（' + delta.label + '：' + nextName + '【' + nextAttr + '】）' : '');
+          btn.addEventListener('click', function () {
+            window.location.href = buildNextUrl(areaCoord.x, areaCoord.y, nx, ny, d, false);
+          });
+          choicesContainer.appendChild(btn);
+        }
+
+        // 2. 大マップの境界移動（対応する【境】マスにいる場合）
+        const isBoundaryEdge =
+          (d === 'N' && curPosName === 'c1') ||
+          (d === 'W' && curPosName === 'a3') ||
+          (d === 'E' && curPosName === 'e3') ||
+          (d === 'S' && curPosName === 'c5');
+
+        if (isBoundaryEdge) {
+          if (outerExits[d]) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'choice-btn exit-boss';
+            btn.textContent = rel + 'にそびえる「森の脱出口（ボス境界）」を調べる' +
+              (isDebug ? '（' + delta.label + '：第1部ゴール地点）' : '');
+            btn.addEventListener('click', function () {
+              alert('ここは第1部の脱出口（' + curAreaName + ' の ' + curPosName + '）です。\n実際のゲームではここでボス戦が発生し、撃破すると第2部へ進みます。');
+            });
+            choicesContainer.appendChild(btn);
+          } else if (curAreaLinks[d]) {
+            const nxAreaX = areaCoord.x + delta.dx;
+            const nxAreaY = areaCoord.y + delta.dy;
+            const nxAreaName = AREA_COLS[nxAreaX] + AREA_ROWS[nxAreaY];
+            const entryPos = { N: [2, 4], S: [2, 0], E: [0, 2], W: [4, 2] }[d];
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'choice-btn boundary';
+            btn.textContent = rel + 'の木漏れ日の先（隣エリアとの境界）へ踏み出す' +
+              (isDebug ? '（' + delta.label + '：' + nxAreaName + ' へ移動／小マップ再生成）' : '');
+            btn.addEventListener('click', function () {
+              window.location.href = buildNextUrl(nxAreaX, nxAreaY, entryPos[0], entryPos[1], d, true);
+            });
+            choicesContainer.appendChild(btn);
+          }
+        }
+      });
+
+      // ===== 6. スマホ下部トレイ開閉 =====
+      const mobileDrawer = document.getElementById('mobileDrawer');
+      document.getElementById('drawerHandle').addEventListener('click', function () {
+        mobileDrawer.classList.toggle('open');
+      });
+
+      // ===== 7. エンリル＆サイコロ演出ギミック =====
+      const enlilOverlay = document.getElementById('enlilOverlay');
+      const diceLeft = document.getElementById('diceLeft');
+      const diceRight = document.getElementById('diceRight');
+      const diceResultText = document.getElementById('diceResultText');
+      let rolling = false;
+
+      document.getElementById('openEnlilBtn').addEventListener('click', function () {
+        diceLeft.textContent = '？';
+        diceRight.textContent = '？';
+        diceResultText.textContent = 'サイコロをタップして運命を振れ';
+        enlilOverlay.classList.add('active');
+      });
+
+      document.getElementById('closeEnlilBtn').addEventListener('click', function () {
+        enlilOverlay.classList.remove('active');
+      });
+
+      function rollDiceAnimation() {
+        if (rolling) return;
+        rolling = true;
+        diceLeft.classList.add('rolling');
+        diceRight.classList.add('rolling');
+        diceResultText.textContent = '判定中……';
+
+        let count = 0;
+        const timer = setInterval(function () {
+          diceLeft.textContent = String(Math.floor(Math.random() * 6) + 1);
+          diceRight.textContent = String(Math.floor(Math.random() * 6) + 1);
+          count++;
+          if (count >= 10) {
+            clearInterval(timer);
+            const d1 = Math.floor(Math.random() * 6) + 1;
+            const d2 = Math.floor(Math.random() * 6) + 1;
+            diceLeft.textContent = String(d1);
+            diceRight.textContent = String(d2);
+            diceLeft.classList.remove('rolling');
+            diceRight.classList.remove('rolling');
+            diceResultText.textContent = '出目：' + d1 + ' ＋ ' + d2 + ' ＝ ' + (d1 + d2);
+            rolling = false;
+          }
+        }, 60);
+      }
+
+      diceLeft.addEventListener('click', rollDiceAnimation);
+      diceRight.addEventListener('click', rollDiceAnimation);
+
+      // ===== 8. スタート画面へ戻る =====
+      document.getElementById('backTitleBtn').addEventListener('click', function () {
+        window.location.href = 'index.html';
+      });
+    })();
+  </script>
+</body>
+</html>

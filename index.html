@@ -1,1 +1,252 @@
-<h1>テスト公開中</h1>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>さまよいの森 - スタート画面（シード値＆迷宮検証）</title>
+  <style>
+    :root {
+      --bg-color: #141210;
+      --panel-bg: #1e1b18;
+      --border-color: #4a4035;
+      --text-main: #e6dfd3;
+      --text-muted: #9e9384;
+      --accent: #c99a49;
+      --accent-hover: #e0b25e;
+      --btn-bg: #2b2620;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: "Hiragino Mincho ProN", "Yu Mincho", "MS PMincho", Georgia, serif;
+      line-height: 1.7;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 640px;
+      background-color: var(--panel-bg);
+      border: 2px solid var(--border-color);
+      padding: 28px 24px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      color: var(--accent);
+      text-align: center;
+      letter-spacing: 0.1em;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: -12px;
+      margin-bottom: 20px;
+    }
+
+    .section {
+      margin-bottom: 22px;
+      padding: 14px 16px;
+      background-color: rgba(0, 0, 0, 0.25);
+      border: 1px solid #352e26;
+    }
+
+    .section-title {
+      font-size: 0.95rem;
+      color: var(--accent);
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    .seed-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    input[type="number"],
+    input[type="text"] {
+      flex: 1;
+      min-width: 140px;
+      padding: 10px 12px;
+      background-color: #0e0d0b;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      font-family: monospace;
+      font-size: 1.1rem;
+    }
+
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      border: 1px solid var(--border-color);
+      background-color: var(--btn-bg);
+      color: var(--text-main);
+      padding: 10px 16px;
+      font-size: 0.95rem;
+      transition: background-color 0.15s, border-color 0.15s;
+    }
+
+    button:hover {
+      background-color: #3a332b;
+      border-color: var(--accent);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      font-size: 1.05rem;
+      font-weight: bold;
+      background-color: #3b2f1e;
+      border: 1px solid var(--accent);
+      color: var(--accent-hover);
+      margin-bottom: 10px;
+    }
+
+    .btn-primary:hover {
+      background-color: #4f3e26;
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 10px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .spec-list {
+      list-style: none;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+
+    .spec-list li {
+      margin-bottom: 6px;
+      padding-left: 1em;
+      text-indent: -1em;
+    }
+
+    .spec-list strong {
+      color: var(--text-main);
+    }
+
+    .note {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>さまよいの森</h1>
+    <p class="subtitle">第1部 迷宮生成・画面レイアウト動作検証（文字のみ／イベント無し版）</p>
+
+    <div class="section">
+      <div class="section-title">1. 大マップ迷路シード値の設定</div>
+      <div class="seed-row">
+        <input type="number" id="seedInput" value="8301" min="1" max="99999999" aria-label="シード値">
+        <button type="button" id="randomSeedBtn">ランダム生成</button>
+      </div>
+      <p class="note">※このシード値で森全体（A1〜E5）の繋がりが決定されます。同じ数値なら同じ森が生成されます。</p>
+    </div>
+
+    <div class="section">
+      <div class="section-title">2. 検証時の初期設定（仕様書準拠）</div>
+      <ul class="spec-list">
+        <li>・<strong>スタート地点</strong>：南の端 大マップ <strong>C5</strong> ／ 小マップ <strong>c5</strong>（北向き進入）</li>
+        <li>・<strong>中央エリア C3（街）</strong>：小迷路なし。東西南北の4境界へ必ず抜ける十字構造</li>
+        <li>・<strong>脱出口（森の外縁）</strong>：北 <strong>C1(c1)</strong>・西 <strong>A3(a3)</strong>・東 <strong>E3(e3)</strong></li>
+        <li>・<strong>エリア移動時の挙動</strong>：境界を越えるたび小マップシードが更新され退路が消滅</li>
+        <li>・<strong>デバッグ初期値</strong>：HP/MP 99、水/食料 50、攻/防/素早さ 50、七曜信仰 全て6</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <div class="section-title">3. 探索画面（maze.html）へ出発</div>
+      <button type="button" id="startDebugBtn" class="btn-primary">デバッグモードで森へ入る（PC推奨）</button>
+      <button type="button" id="startNormalBtn" class="btn-secondary">通常モードで入る（スマホ画面／地図なし確認用）</button>
+      <p class="note">※スマホ幅（768px未満）で開いた場合は、仕様通りデバッグ地図は表示されず3分割レイアウトになります。</p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const seedInput = document.getElementById('seedInput');
+      const randomSeedBtn = document.getElementById('randomSeedBtn');
+      const startDebugBtn = document.getElementById('startDebugBtn');
+      const startNormalBtn = document.getElementById('startNormalBtn');
+
+      randomSeedBtn.addEventListener('click', function () {
+        const rnd = Math.floor(1000 + Math.random() * 90000);
+        seedInput.value = rnd;
+      });
+
+      function hashSeed(base, str) {
+        let h = base >>> 0;
+        for (let i = 0; i < str.length; i++) {
+          h = Math.imul(h ^ str.charCodeAt(i), 2654435761) >>> 0;
+        }
+        return (h % 900000) + 1000;
+      }
+
+      function launch(isDebug) {
+        let s = parseInt(seedInput.value, 10);
+        if (isNaN(s) || s < 1) s = 8301;
+
+        // 初期エリア C5 の小マップ迷路シード(ms)とイベントシード(es)を生成
+        const ms = hashSeed(s, 'C5-maze-init');
+        const es = hashSeed(s, 'C5-event-init');
+
+        // プレイヤー能力値: HP,MaxHP,MP,MaxMP,水,食料,攻,防,素,運,金貨
+        const p = isDebug
+          ? '99,99,99,99,50,50,50,50,50,10,100'
+          : '20,20,5,5,2,1,5,3,6,5,10';
+
+        // 初期フラグ: 25マス分 '0' (現在地c5のみ'1')
+        const fl = '0000000000000000000000100';
+
+        // 永続スイッチ: 16進数32文字（128ビット分）
+        const sw = '00000000000000000000000000000000';
+
+        const params = new URLSearchParams({
+          s: String(s),
+          ms: String(ms),
+          es: String(es),
+          area: 'C5',
+          pos: 'c5',
+          dir: 'N',
+          t: '1', // 1:朝陽
+          debug: isDebug ? '1' : '0',
+          p: p,
+          fl: fl,
+          sw: sw
+        });
+
+        window.location.href = 'maze.html?' + params.toString();
+      }
+
+      startDebugBtn.addEventListener('click', function () { launch(true); });
+      startNormalBtn.addEventListener('click', function () { launch(false); });
+    })();
+  </script>
+</body>
+</html>
